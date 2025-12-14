@@ -8,8 +8,15 @@ import Poster5 from '../assets/ing.jpg'
 import Poster6 from '../assets/pulp-1.jpg'
 import Poster7 from '../assets/rubysparks.jpg'
 import Poster8 from '../assets/youuuu.jpeg'
+import { useNavigate } from 'react-router-dom';
 
 export default function MovieHome() {
+  const navigate = useNavigate()
+  const handleLogin = () =>{
+    navigate('/watchlist')
+  }
+
+
   const [movies] = useState([
     { id: 1, title: 'Spider-Man: Accross The Spider-Verse', poster: Poster1 },
     { id: 2, title: 'Avengers: Infinity War', poster: Poster2 },
@@ -24,7 +31,8 @@ export default function MovieHome() {
   return (
     <div className="movie-container">
       <header className="movie-header">
-        <h1 className="movie-header-title">My Movies</h1>
+        <h1 className="movie-header-title">Chill</h1>
+        <button onClick={handleLogin} className='my-list'>WatchList</button>
       </header>
 
       <div className="movie-grid">

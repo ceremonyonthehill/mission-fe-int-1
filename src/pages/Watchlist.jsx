@@ -1,96 +1,122 @@
-import { useState } from 'react';
-import './MovieHome.css';
-import Poster1 from '../assets/acc.jpg'
-import Poster2 from '../assets/ave-1.jpg'
-import Poster3 from '../assets/avengers.jpg'
-import Poster4 from '../assets/batman.jpg'
-import Poster5 from '../assets/ing.jpg'
-import Poster6 from '../assets/pulp-1.jpg'
-import Poster7 from '../assets/rubysparks.jpg'
-import Poster8 from '../assets/youuuu.jpeg'
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { movieAPI } from '../services/api';
+import './MovieHome.css';
 
 export default function MovieHome() {
   const navigate = useNavigate();
-  const handleLogin = () => {
-    navigate('/movies');
-  }
-
-  const [movies, setMovies] = useState([
-    { id: 1, title: 'Spider-Man: Accross The Spider-Verse', poster: Poster1 },
-    { id: 2, title: 'Avengers: Infinity War', poster: Poster2 },
-    { id: 3, title: 'Avengers: Endgame', poster: Poster3 },
-    { id: 4, title: 'The Batman', poster: Poster4 },
-   
-  ]);
-
+  const [movies, setMovies] = useState([]);
   const [formData, setFormData] = useState({ title: '', poster: '' });
   const [editId, setEditId] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  // create
-  const handleAdd = (e) => {
-    e.preventDefault();
-    if (!formData.title.trim()) return;
+  // fetch movies on mount ---
+  useEffect(() => {
+    fetchMovies();
+  }, []);
 
-    const newMovie = {
-      id: Date.now(),
-      title: formData.title,
-      poster: formData.poster || null
-    };
-
-    setMovies([...movies, newMovie]);
-    setFormData({ title: '', poster: '' });
-    setShowForm(false);
-  };
-
-  // update
-  const handleUpdate = (e) => {
-    e.preventDefault();
-    if (!formData.title.trim()) return;
-
-    setMovies(movies.map(movie =>
-      movie.id === editId
-        ? { ...movie, title: formData.title, poster: formData.poster || movie.poster }
-        : movie
-    ));
-
-    setFormData({ title: '', poster: '' });
-    setEditId(null);
-    setShowForm(false);
-  };
-
-  // delete
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this movie?')) {
-      setMovies(movies.filter(movie => movie.id !== id));
+  const fetchMovies = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      const response = await movieAPI.getAllMovies();
+      setMovies(response.data);
+    } catch (error) {
+      console.error('Error fetching movies:', error);
+      setError('Failed to load movies. Make sure the server is running.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // edit
+  // CREATE
+  const handleAdd = async (e) => {
+    e.preventDefault();
+    if (!formData.title.trim()) return;
+
+    try {
+      const response = await movieAPI.createMovie({
+        title: formData.title,
+        poster: formData.poster || null
+      });
+      setMovies([...movies, response.data]);
+      setFormData({ title: '', poster: '' });
+      setShowForm(false);
+      setError('');
+    } catch (error) {
+      console.error('Error adding movie:', error);
+      setError('Failed to add movie');
+    }
+  };
+
+  // UPDATE
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    if (!formData.title.trim()) return;
+
+    try {
+      const response = await movieAPI.updateMovie(editId, {
+        title: formData.title,
+        poster: formData.poster
+      });
+      setMovies(movies.map(movie =>
+        movie.id === editId ? response.data : movie
+      ));
+      setFormData({ title: '', poster: '' });
+      setEditId(null);
+      setShowForm(false);
+      setError('');
+    } catch (error) {
+      console.error('Error updating movie:', error);
+      setError('Failed to update movie');
+    }
+  };
+
+  // DELETE
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this movie?')) {
+      try {
+        await movieAPI.deleteMovie(id);
+        setMovies(movies.filter(movie => movie.id !== id));
+        setError('');
+      } catch (error) {
+        console.error('Error deleting movie:', error);
+        setError('Failed to delete movie');
+      }
+    }
+  };
+
   const handleEdit = (movie) => {
     setEditId(movie.id);
     setFormData({ title: movie.title, poster: movie.poster || '' });
     setShowForm(true);
   };
 
-  // cancel
   const handleCancel = () => {
     setFormData({ title: '', poster: '' });
     setEditId(null);
     setShowForm(false);
   };
 
+  if (loading) {
+    return <div className="loading">Loading movies...</div>;
+  }
+
   return (
-    <div className="movie-container">
+    <div className="movie-container2">
       <header className="movie-header">
-        <button onClick={handleLogin} className="movie-header-title">Chill</button>
+        <button onClick={() => navigate('/movies')} className="movie-header-title">
+          Chill
+        </button>
         <button className="add-movie-btn" onClick={() => setShowForm(!showForm)}>
           {showForm ? 'Cancel' : '+ Add Movie'}
         </button>
       </header>
 
-      {/* Form tambah film */}
+      {error && <div className="error-message">{error}</div>}
+
       {showForm && (
         <div className="movie-form-container">
           <form onSubmit={editId ? handleUpdate : handleAdd} className="movie-form">
@@ -128,30 +154,33 @@ export default function MovieHome() {
         </div>
       )}
 
-      {/* form movie sesudah add */}
       <div className="movie-grid">
-        {movies.map((movie) => (
-          <div key={movie.id} className="movie-card">
-            <div className="movie-poster">
-              {movie.poster ? (
-                <img src={movie.poster} alt={movie.title} className="movie-img" />
-              ) : (
-                <div className="movie-placeholder">
-                  <p className="movie-placeholder-text">No Poster</p>
-                </div>
-              )}
+        {movies.length === 0 && !loading ? (
+          <p className="no-movies">No movies yet. Add your first movie!</p>
+        ) : (
+          movies.map((movie) => (
+            <div key={movie.id} className="movie-card">
+              <div className="movie-poster">
+                {movie.poster ? (
+                  <img src={movie.poster} alt={movie.title} className="movie-img" />
+                ) : (
+                  <div className="movie-placeholder">
+                    <p className="movie-placeholder-text">No Poster</p>
+                  </div>
+                )}
+              </div>
+              <h3 className="movie-title">{movie.title}</h3>
+              <div className="movie-actions">
+                <button className="edit-btn" onClick={() => handleEdit(movie)}>
+                  Edit
+                </button>
+                <button className="delete-btn" onClick={() => handleDelete(movie.id)}>
+                  Delete
+                </button>
+              </div>
             </div>
-            <h3 className="movie-title">{movie.title}</h3>
-            <div className="movie-actions">
-              <button className="edit-btn" onClick={() => handleEdit(movie)}>
-                Edit
-              </button>
-              <button className="delete-btn" onClick={() => handleDelete(movie.id)}>
-                Delete
-              </button>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   );
